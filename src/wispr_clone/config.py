@@ -40,6 +40,10 @@ ollama_url = "http://localhost:11434"
 model = "llama3.2:3b"
 # Max seconds to wait for the LLM before falling back to the raw transcript.
 timeout_seconds = 10.0
+# Apps mapped to the "code" style (editors, terminals) get deterministic
+# filler-stripping instead of the LLM - a small model rewriting a shell
+# command is where hallucination does real damage. Set true to use the LLM.
+llm_for_code_style = false
 
 [injection]
 # "paste" = save clipboard, set result, synthetic Cmd+V, restore clipboard (fast).
@@ -100,6 +104,9 @@ class CleanupConfig:
     ollama_url: str = "http://localhost:11434"
     model: str = "llama3.2:3b"
     timeout_seconds: float = 10.0
+    # "code"-style apps (editors/terminals) use deterministic filler-stripping
+    # by default; set true to run the LLM there too.
+    llm_for_code_style: bool = False
 
 
 @dataclass

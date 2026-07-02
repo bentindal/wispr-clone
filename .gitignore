@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Model weights / caches (downloaded at runtime, never committed)
+models/
+*.onnx
+*.ggml
+*.gguf
+*.safetensors
+
+# Temp audio
+*.wav
+*.aiff
+*.mp3
+tmp/
+
+# Personal data - never commit the user's vocabulary or config
+config.toml
+vocabulary.json
+
+# macOS
+.DS_Store
+
+# Editors
+.idea/
+.vscode/

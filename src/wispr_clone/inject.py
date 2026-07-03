@@ -10,6 +10,7 @@ Requires the Accessibility permission for the running process.
 from __future__ import annotations
 
 import logging
+import threading
 import time
 
 logger = logging.getLogger(__name__)
@@ -51,18 +52,32 @@ def _send_cmd_v() -> None:
         CGEventPost(kCGHIDEventTap, event)
 
 
-def inject_paste(text: str, restore_delay: float = 0.25) -> None:
+def inject_paste(text: str, restore_delay: float = 2.0) -> None:
     """Paste *text* into the focused field, preserving the user's clipboard.
 
-    *restore_delay* gives the frontmost app time to read the pasteboard before
-    the original contents are put back.
+    The original clipboard is restored on a background thread after
+    *restore_delay* seconds - long enough for even a busy target app to have
+    read the pasteboard (a blocking short delay races when the system is under
+    load and the app pastes the restored contents instead). If the pasteboard
+    changes in the meantime (the user copied something), we leave it alone.
     """
+    from AppKit import NSPasteboard
+
     saved = get_clipboard()
     set_clipboard(text)
+    change_count = NSPasteboard.generalPasteboard().changeCount()
     _send_cmd_v()
-    time.sleep(restore_delay)
-    if saved is not None:
-        set_clipboard(saved)
+
+    if saved is None:
+        return
+
+    def _restore() -> None:
+        time.sleep(restore_delay)
+        pb = NSPasteboard.generalPasteboard()
+        if pb.changeCount() == change_count:  # nobody else touched it
+            set_clipboard(saved)
+
+    threading.Thread(target=_restore, daemon=True).start()
 
 
 def inject_type(text: str, chunk: int = 20, delay: float = 0.01) -> None:
@@ -87,15 +102,21 @@ def inject_type(text: str, chunk: int = 20, delay: float = 0.01) -> None:
         time.sleep(delay)
 
 
-def inject(text: str, method: str = "paste") -> None:
-    """Deliver *text* to the focused app using the configured method."""
+def inject(text: str, method: str = "paste", restore_delay: float = 2.0) -> None:
+    """Deliver *text* to the focused app using the configured method.
+
+    *restore_delay* (paste method) is how long the result stays on the
+    clipboard before the original clipboard is restored. Too short and a
+    busy target app pastes the *restored* contents instead - raise this if
+    dictations intermittently produce old clipboard text.
+    """
     if not text:
         return
     try:
         if method == "type":
             inject_type(text)
         else:
-            inject_paste(text)
+            inject_paste(text, restore_delay=restore_delay)
     except Exception as exc:
         raise InjectionError(
             f"Text injection failed: {exc}. Check the Accessibility permission "

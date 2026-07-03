@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from collections.abc import Callable
 
 from pynput import keyboard
@@ -102,12 +103,43 @@ class HotkeyListener:
         except Exception:
             logger.exception("hotkey callback failed")
 
-    def start(self) -> None:
-        """Start listening on a background thread; returns once the tap is armed."""
-        self._listener = keyboard.Listener(on_press=self._on_press, on_release=self._on_release)
-        self._listener.daemon = True
-        self._listener.start()
-        self._listener.wait()  # block until the event tap is actually installed
+    def start(self, attempts: int = 3, timeout: float = 8.0) -> None:
+        """Start listening on a background thread; returns once the tap is armed.
+
+        Creating the CGEventTap can fail transiently (WindowServer/TCC under
+        load); pynput never marks the listener ready in that case, so a bare
+        ``wait()`` would hang forever. Poll readiness with a timeout and retry.
+        """
+        for attempt in range(1, attempts + 1):
+            self._listener = keyboard.Listener(on_press=self._on_press, on_release=self._on_release)
+            self._listener.daemon = True
+            self._listener.start()
+            if self._wait_ready(timeout):
+                if attempt > 1:
+                    logger.info("hotkey listener armed on attempt %d", attempt)
+                return
+            logger.warning("hotkey listener did not arm within %.0fs (attempt %d/%d)", timeout, attempt, attempts)
+            try:
+                self._listener.stop()
+            except Exception:
+                pass
+            time.sleep(1.0)
+        raise HotkeyError(
+            "Could not install the global hotkey event tap. Check the Input Monitoring "
+            "permission (System Settings -> Privacy & Security -> Input Monitoring) for "
+            "the app you launched wispr-clone from, then relaunch."
+        )
+
+    def _wait_ready(self, timeout: float) -> bool:
+        """True once the listener thread reports ready; False on timeout/death."""
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if getattr(self._listener, "_ready", False):
+                return True
+            if not self._listener.is_alive():
+                return False
+            time.sleep(0.05)
+        return False
 
     def stop(self) -> None:
         if self._listener is not None:

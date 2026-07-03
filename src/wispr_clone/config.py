@@ -50,6 +50,11 @@ llm_for_code_style = false
 # "type"  = type character-by-character (slower, preserves clipboard, works in
 #           paste-hostile apps).
 method = "paste"
+# Seconds the dictated text stays on the clipboard before the original
+# clipboard is restored (paste method; restore happens in the background and
+# is skipped if you copy something new first). Raise this if a slow app
+# sometimes pastes your old clipboard instead of the dictation.
+restore_delay = 2.0
 
 [vocabulary]
 # When true, the "Correct last transcription" menu action adds corrected terms
@@ -112,6 +117,10 @@ class CleanupConfig:
 @dataclass
 class InjectionConfig:
     method: str = "paste"  # "paste" | "type"
+    # Seconds the dictated text stays on the clipboard before the original
+    # clipboard is restored (in the background; skipped if you copy something
+    # new first). Raise if a slow/busy app pastes stale contents.
+    restore_delay: float = 2.0
 
 
 @dataclass

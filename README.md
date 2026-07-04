@@ -139,7 +139,9 @@ ASR is roughly real-time-or-faster and short dictations land in ~1–2 s; the LL
 ~1–3 s when enabled. On 8 GB machines running Parakeet **and** a 3B LLM together causes
 swapping — if dictation feels slow:
 
-- use `cleanup.model = "llama3.2:1b"` (`ollama pull llama3.2:1b`), or
+- use `cleanup.model = "llama3.2:1b"` (`ollama pull llama3.2:1b`) — measured ~0.6–1.1 s per
+  cleanup vs 2–8 s for the 3B model on an 8 GB M1, at the cost of occasionally dropping a
+  trailing clause from long rambly sentences, or
 - set `cleanup.enabled = false` (raw transcripts are still vocabulary-corrected and instant), or
 - close memory-heavy apps while dictating.
 
